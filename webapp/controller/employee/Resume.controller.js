@@ -56,7 +56,7 @@ sap.ui.define([
 			}
 		},
 		onTabSelect: function (oEvent){
-			var oCtx = this.getView().getBindingContext();
+			let oCtx = this.getView().getBindingContext();
 			this.getRouter().navTo("employeeResume", {
 				employeeId: oCtx.getProperty("EmployeeID"),
 				"?query": {

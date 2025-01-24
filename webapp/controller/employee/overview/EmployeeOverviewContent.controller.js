@@ -18,29 +18,67 @@ sap.ui.define([
 	return BaseController.extend("sap.ui.demo.nav.controller.employee.overview.EmployeeOverviewContent", {
 
 		onInit: function () {
+			let oRouter = this.getRouter();
+
 			this._oTable = this.byId("employeesTable");
 			this._oVSD = null;
 			this._sSortField = null;
 			this._bSortDescending = false;
 			this._aValidSortFields = ["EmployeeID", "FirstName", "LastName"];
 			this._sSearchQuery = null;
+			this._oRouterArgs = null;
 
 			this._initViewSettingsDialog();
+
+			// make the search bookmarkable
+			oRouter.getRoute("employeeOverview").attachMatched(this._onRouteMatched, this);
+
 		},
 
-		onSortButtonPressed : function () {
-			this._oVSD.open();
+		_onRouteMatched : function (oEvent) {
+			// save the current query state
+			this._oRouterArgs = oEvent.getParameter("arguments");
+			this._oRouterArgs["?query"] = this._oRouterArgs["?query"] || {};
+			let oQueryParameter = this._oRouterArgs["?query"];
+
+			// search/filter via URL hash
+			this._applySearchFilter(oQueryParameter.search);
+
+			//shorting via URL hash
+			this._applySorter(oQueryParameter.sortField, oQueryParameter.sortDescending);
+
+			// show dialog via URL hash
+			if (oQueryParameter.showDialog) {
+				this._oVSD.open();
+			}
+		},
+
+		onSortButtonPressed : function (oEvent) {
+			let oRouter = this.getRouter();
+			this._oRouterArgs["?query"].showDialog = 1;
+			oRouter.navTo("employeeOverview", this._oRouterArgs);
 		},
 
 		onSearchEmployeesTable : function (oEvent) {
-			this._applySearchFilter( oEvent.getSource().getValue() );
+			let oRouter = this.getRouter();
+			// update the hash with the current search term
+			this._oRouterArgs["?query"].search = oEvent.getSource().getValue();
+			oRouter.navTo("employeeOverview", this._oRouterArgs, true /*no history*/);
 		},
 
-		_initViewSettingsDialog : function () {
+		_initViewSettingsDialog: function () {
+			let oRouter = this.getRouter();
 			this._oVSD = new ViewSettingsDialog("vsd", {
 				confirm: function (oEvent) {
-					var oSortItem = oEvent.getParameter("sortItem");
-					this._applySorter(oSortItem.getKey(), oEvent.getParameter("sortDescending"));
+					let oSortItem = oEvent.getParameter("sortItem");
+					this._oRouterArgs["?query"].sortField = oSortItem.getKey();
+					this._oRouterArgs["?query"].sortDescending = oEvent.getParameter("sortDescending");
+					delete this._oRouterArgs["?query"].showDialog;
+					oRouter.navTo("employeeOverview", this._oRouterArgs, true /*without history*/);
+				}.bind(this),
+				cancel: function (oEvent){
+					delete this._oRouterArgs["?query"].showDialog;
+					oRouter.navTo("employeeOverview", this._oRouterArgs, true /*without history*/);
 				}.bind(this)
 			});
 
@@ -48,7 +86,7 @@ sap.ui.define([
 			this._oVSD.addSortItem(new ViewSettingsItem({
 				key: "EmployeeID",
 				text: "Employee ID",
-				selected: true			// by default the MockData is sorted by EmployeeID
+				selected: true	// by default the MockData is sorted by EmployeeID
 			}));
 
 			this._oVSD.addSortItem(new ViewSettingsItem({
@@ -65,7 +103,7 @@ sap.ui.define([
 		},
 
 		_applySearchFilter : function (sSearchQuery) {
-			var aFilters, oFilter, oBinding;
+			let aFilters, oFilter, oBinding;
 
 			// first check if we already have this search value
 			if (this._sSearchQuery === sSearchQuery) {
@@ -96,7 +134,7 @@ sap.ui.define([
 		 * @private
 		 */
 		_applySorter : function (sSortField, sortDescending){
-			var bSortDescending, oBinding, oSorter;
+			let bSortDescending, oBinding, oSorter;
 
 			// only continue if we have a valid sort field
 			if (sSortField && this._aValidSortFields.indexOf(sSortField) > -1) {
@@ -132,6 +170,17 @@ sap.ui.define([
 			// Note: no input validation is implemented here
 			this._oVSD.setSelectedSortItem(sSortField);
 			this._oVSD.setSortDescending(bSortDescending);
+		},
+		onItemPressed: function (oEvent) {
+			let oItem, oCtx, oRouter;
+			oItem = oEvent.getParameter("listItem");
+			oCtx = oItem.getBindingContext();
+			this.getRouter().navTo("employeeResume",{
+				employeeId : oCtx.getProperty("EmployeeID"),
+				"?query": {
+					tab: "Info"
+				}
+			});
 		}
 
 	});
